@@ -25,7 +25,7 @@ lint: install
 check: lint test
 
 # The ArduCopter 4.6.3 metadata, to check the built-in ArduCopter rules against.
-ap-meta: $(AP_META)
+ap-meta: install $(AP_META)
 	PARAMGUARD_AP_META=$(AP_META) $(BIN)/pytest -q tests/test_rules.py -k ardupilot
 
 $(AP_META):
