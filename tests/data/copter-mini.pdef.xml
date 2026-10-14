@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A hand-written excerpt in ArduPilot's apm.pdef.xml format, for tests. -->
+<paramfile>
+  <vehicles>
+    <parameters name="ArduCopter">
+      <param humanName="Ground Station Failsafe Enable" name="ArduCopter:FS_GCS_ENABLE" documentation="x" user="Standard">
+        <values>
+          <value code="0">Disabled/NoAction</value>
+          <value code="1">RTL</value>
+          <value code="5">Land</value>
+        </values>
+      </param>
+      <param humanName="Motor Spin armed" name="MOT_SPIN_ARM" documentation="x" user="Advanced">
+        <values>
+          <value code="0.0">Low</value>
+          <value code="0.1">Default</value>
+        </values>
+      </param>
+      <param humanName="RTL Altitude" name="ArduCopter:RTL_ALT" documentation="x" user="Standard">
+        <field name="Range">30 300000</field>
+        <field name="Units">cm</field>
+      </param>
+    </parameters>
+  </vehicles>
+  <libraries>
+    <parameters name="ARMING_">
+      <param humanName="Arm Checks" name="ARMING_CHECK" documentation="x" user="Standard">
+        <bitmask>
+          <bit code="0">All</bit>
+          <bit code="1">Barometer</bit>
+        </bitmask>
+        <field name="RebootRequired">True</field>
+      </param>
+    </parameters>
+  </libraries>
+</paramfile>

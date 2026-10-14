@@ -1,0 +1,240 @@
+# paramguard's built-in rules for PX4 (written against v1.15).
+#
+# Each rule says what a change does to the vehicle, in the words a reviewer
+# needs. Block means the pull request stops until someone adds an allowance
+# naming who accepted it and why; warn means it is pointed out and passes.
+#
+# Rules are judged on effective values: a deleted line means the firmware
+# default, which for several failsafes on multicopters is "do nothing".
+
+version = 1
+firmware = "px4"
+
+# --- Failsafes: what happens when something goes wrong -----------------------
+
+[[rule]]
+id = "gcs-loss-failsafe-off"
+params = ["NAV_DLL_ACT"]
+forbid = [0]
+reason = """With the ground-station link-loss failsafe disabled, a vehicle that loses its
+link carries on with whatever it was doing. In Hold that means hovering where it
+is, out of contact, until the battery runs down. The firmware default is 0
+(Disabled), so deleting this line does the same."""
+ref = "https://docs.px4.io/v1.15/en/config/safety.html#data-link-loss-failsafe"
+
+[[rule]]
+id = "gcs-loss-slow"
+params = ["COM_DL_LOSS_T"]
+max = 30
+severity = "warn"
+reason = """The vehicle waits this long without a ground-station link before the link-loss
+failsafe acts. At cruise speed every extra second is more distance flown out of
+contact."""
+
+[[rule]]
+id = "rc-loss-exceptions"
+params = ["COM_RCL_EXCEPT"]
+no_new_bits = true
+severity = "warn"
+reason = """Each bit is a flight mode in which RC loss is ignored and no failsafe action is
+taken. A new bit means a mode where losing the transmitter no longer brings the
+vehicle back."""
+
+[[rule]]
+id = "stick-input-disabled"
+params = ["COM_RC_IN_MODE"]
+forbid = [4]
+reason = """Mode 4 disables stick input entirely: no RC and no joystick, so a pilot cannot
+take over manually."""
+
+[[rule]]
+id = "battery-failsafe-off"
+params = ["COM_LOW_BAT_ACT"]
+forbid = [0]
+reason = """Warning only: at critical and emergency battery levels the vehicle keeps flying
+until it can't. Return or land is what stops a mission from ending in a
+forced landing wherever the battery gives out."""
+
+[[rule]]
+id = "battery-threshold-lowered"
+params = ["BAT_LOW_THR", "BAT_CRIT_THR", "BAT_EMERGEN_THR"]
+no_decrease = true
+severity = "warn"
+reason = """A lower threshold triggers the battery failsafe later, with less charge left to
+get home on. Usually done to stretch flight time; check the return leg still fits
+in what is left."""
+
+[[rule]]
+id = "battery-critical-order"
+params = ["BAT_CRIT_THR"]
+below = "BAT_LOW_THR"
+reason = """The critical threshold has to be below the low threshold; otherwise the battery
+goes straight from fine to critical, and the low-battery warning never comes."""
+
+[[rule]]
+id = "battery-emergency-order"
+params = ["BAT_EMERGEN_THR"]
+below = "BAT_CRIT_THR"
+reason = """The emergency threshold has to be below the critical threshold, or the vehicle
+lands at the point it was meant to start returning."""
+
+[[rule]]
+id = "actuator-failure-ignored"
+params = ["COM_ACT_FAIL_ACT"]
+no_decrease = true
+severity = "warn"
+reason = """Weakens the response to a detected motor or actuator failure (0 is warning
+only)."""
+
+[[rule]]
+id = "failsafe-delay"
+params = ["COM_FAIL_ACT_T"]
+max = 10
+severity = "warn"
+reason = """Seconds the vehicle holds before a failsafe action starts. Long delays leave a
+vehicle hovering after, for example, link loss, with nothing deciding to bring it
+back."""
+
+# --- Geofence ---------------------------------------------------------------
+
+[[rule]]
+id = "geofence-action-none"
+params = ["GF_ACTION"]
+forbid = [0, 1]
+reason = """None or Warning: a breach is at most a message, and the vehicle keeps going. With
+these two values PX4 also stops checking reposition and goto targets against the
+fence, so a "fly here" outside it is accepted."""
+ref = "https://docs.px4.io/v1.15/en/config/geofence.html"
+
+[[rule]]
+id = "geofence-terminate"
+params = ["GF_ACTION"]
+forbid = [4]
+severity = "warn"
+reason = """Terminate cuts the motors on a breach and the vehicle falls. Correct for some
+operations (with a parachute, over a closed range), dangerous for most."""
+
+[[rule]]
+id = "geofence-disabled"
+params = ["GF_MAX_HOR_DIST", "GF_MAX_VER_DIST"]
+forbid = [0]
+reason = """0 turns this distance limit off: the vehicle can be flown, or told to fly, any
+distance from home."""
+
+# --- Circuit breakers: the checks PX4 can be told to skip -------------------
+
+[[rule]]
+id = "power-check-bypassed"
+params = ["CBRK_SUPPLY_CHK"]
+forbid = [894281]
+reason = """Disables the power-supply checks before arming, so the vehicle arms on a supply
+the commander would have refused."""
+
+[[rule]]
+id = "safety-switch-bypassed"
+params = ["CBRK_IO_SAFETY"]
+forbid = [22027]
+severity = "warn"
+reason = """Disables the IO safety switch: motors can spin as soon as the vehicle is armed,
+with no button between the person handling it and the props."""
+
+[[rule]]
+id = "vtol-arming-check-bypassed"
+params = ["CBRK_VTOLARMING"]
+forbid = [159753]
+reason = """Allows a VTOL to arm in fixed-wing mode."""
+
+[[rule]]
+id = "logging-off"
+params = ["SDLOG_MODE"]
+forbid = [-1]
+reason = """Flight logging disabled: after an incident there is nothing to find out what
+happened from."""
+
+# --- What the airframe is ---------------------------------------------------
+
+[[rule]]
+id = "airframe-changed"
+params = ["SYS_AUTOSTART"]
+any_change = true
+reason = """A different airframe script runs at the next boot and resets its own defaults:
+geometry, outputs and tuning can all change with this one line."""
+
+[[rule]]
+id = "motor-mapping-changed"
+params = ["PWM_MAIN_FUNC*", "PWM_AUX_FUNC*", "UAVCAN_EC_FUNC*", "DSHOT_*FUNC*"]
+any_change = true
+reason = """Changes which output drives which motor or servo. A wrong mapping flips the
+vehicle on take-off; check it with the motor test before flying."""
+
+[[rule]]
+id = "rotor-direction-flipped"
+params = ["CA_ROTOR*_KM"]
+no_sign_flip = true
+reason = """The sign of a rotor's moment coefficient is its spin direction. Flipping it tells
+the mixer the motor turns the other way, and yaw control fights itself."""
+
+[[rule]]
+id = "rotor-geometry-changed"
+params = ["CA_ROTOR*_PX", "CA_ROTOR*_PY", "CA_ROTOR_COUNT", "CA_AIRFRAME"]
+any_change = true
+severity = "warn"
+reason = """The mixer's model of where the rotors are. It has to match the frame that will
+fly with it."""
+
+# --- Tuning and limits ------------------------------------------------------
+
+[[rule]]
+id = "rate-gain-step"
+params = ["MC_*RATE_[PIDK]", "MC_*RATE_FF"]
+max_step = 0.5
+reason = """Rate-loop gains moved by more than half in one change. Steps that size are where
+oscillation and loss of control come from; tune in smaller steps, flying each
+one."""
+
+[[rule]]
+id = "attitude-gain-step"
+params = ["MC_ROLL_P", "MC_PITCH_P", "MC_YAW_P", "MPC_XY_P", "MPC_Z_P", "MPC_XY_VEL_P_ACC", "MPC_Z_VEL_P_ACC"]
+max_step = 0.5
+severity = "warn"
+reason = """An attitude or position gain moved by more than half in one change."""
+
+[[rule]]
+id = "descent-too-fast"
+params = ["MPC_Z_VEL_MAX_DN", "MPC_Z_V_AUTO_DN"]
+max = 3
+severity = "warn"
+reason = """Descending faster than about 3 m/s risks the vortex ring state, where a
+multicopter sinks into its own downwash and loses lift."""
+
+[[rule]]
+id = "tilt-limit"
+params = ["MPC_TILTMAX_AIR"]
+max = 45
+severity = "warn"
+reason = """More tilt than 45 degrees leaves little thrust for holding altitude; at the
+limit the vehicle sinks while it accelerates."""
+
+[[rule]]
+id = "speed-limit-raised"
+params = ["MPC_XY_VEL_MAX", "MPC_Z_VEL_MAX_UP"]
+no_increase = true
+severity = "warn"
+reason = """A higher speed limit lets every mode fly faster, including the ones driven by a
+script or a companion computer."""
+
+[[rule]]
+id = "return-altitude"
+params = ["RTL_RETURN_ALT"]
+min = 20
+severity = "warn"
+reason = """Return mode climbs to this height before flying home. Below the trees and
+buildings around the site, the way home goes through them."""
+
+[[rule]]
+id = "flight-termination-armed"
+params = ["CBRK_FLIGHTTERM"]
+forbid = [0]
+severity = "warn"
+reason = """Enables flight termination: failure detection or a Terminate action can now cut
+the motors in flight."""

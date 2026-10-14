@@ -1,0 +1,58 @@
+name: paramguard
+description: Block dangerous PX4 and ArduPilot parameter changes in pull requests
+branding:
+  icon: shield
+  color: orange
+inputs:
+  files:
+    description: Parameter files to check, space-separated (globs are expanded by the shell)
+    required: true
+  base:
+    description: Git ref to compare against (default the pull request's base branch)
+    required: false
+    default: ""
+  meta:
+    description: Metadata id or path (default px4-1.15.4); for ArduPilot, a path to apm.pdef.xml
+    required: false
+    default: px4-1.15.4
+  rules:
+    description: Extra rule files, space-separated (the built-in set for the firmware is always included)
+    required: false
+    default: ""
+  allow:
+    description: Allowance file (default paramguard.allow.toml if present)
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install paramguard
+      shell: bash
+      run: pip install -q "${{ github.action_path }}"
+    - name: Check parameter changes
+      shell: bash
+      env:
+        PG_FILES: ${{ inputs.files }}
+        PG_BASE: ${{ inputs.base }}
+        PG_META: ${{ inputs.meta }}
+        PG_RULES: ${{ inputs.rules }}
+        PG_ALLOW: ${{ inputs.allow }}
+        PG_PR_BASE: ${{ github.base_ref }}
+      run: |
+        base="$PG_BASE"
+        if [ -z "$base" ]; then
+          if [ -z "$PG_PR_BASE" ]; then
+            echo "paramguard: no 'base' given and this is not a pull request" >&2
+            exit 2
+          fi
+          git fetch --no-tags --depth=1 origin "$PG_PR_BASE"
+          base="origin/$PG_PR_BASE"
+        fi
+        args=(check --base "$base" --meta "$PG_META" --format github)
+        for r in $PG_RULES; do args+=(--rules "$r"); done
+        [ -n "$PG_ALLOW" ] && args+=(--allow "$PG_ALLOW")
+        # shellcheck disable=SC2086
+        paramguard "${args[@]}" $PG_FILES

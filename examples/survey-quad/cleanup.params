@@ -1,0 +1,14 @@
+# Onboard parameters for Vehicle 1
+#
+# Stack: PX4 Pro
+# Vehicle: survey-quad (Holybro X500 v2, Pixhawk 6C)
+# Version: 1.15.4 dev
+#
+# Vehicle-Id Component-Id Name Value Type
+1	1	BAT1_N_CELLS	4	6
+1	1	BAT1_V_CHARGED	4.2000000476837158	9
+1	1	BAT1_V_EMPTY	3.5	9
+1	1	COM_LOW_BAT_ACT	3	6
+1	1	GF_ACTION	3	6
+1	1	GF_MAX_HOR_DIST	500	9
+1	1	GF_MAX_VER_DIST	120	9

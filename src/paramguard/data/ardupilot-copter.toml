@@ -1,0 +1,132 @@
+# paramguard's built-in rules for ArduCopter (written against 4.6).
+#
+# ArduPilot's metadata has no defaults, so a parameter deleted from a file is
+# reported as reverting to an unknown value; rules judge the values a file
+# actually sets.
+
+version = 1
+firmware = "ardupilot"
+
+[[rule]]
+id = "gcs-failsafe-off"
+params = ["FS_GCS_ENABLE"]
+forbid = [0]
+reason = """With the ground-station failsafe disabled, a vehicle flying on GCS commands
+(Guided, or a mission started from the GCS) carries on after the link drops,
+out of contact, until something else stops it."""
+ref = "https://ardupilot.org/copter/docs/gcs-failsafe.html"
+
+[[rule]]
+id = "throttle-failsafe-off"
+params = ["FS_THR_ENABLE"]
+forbid = [0]
+reason = """With the radio (throttle) failsafe disabled, losing the transmitter is not
+detected, and the vehicle keeps flying on the last stick positions it had."""
+ref = "https://ardupilot.org/copter/docs/radio-failsafe.html"
+
+[[rule]]
+id = "failsafe-continue-options"
+params = ["FS_OPTIONS"]
+no_new_bits = true
+severity = "warn"
+reason = """Each bit lets the vehicle continue instead of taking its failsafe action in some
+situation, such as RC or GCS loss during an Auto mission."""
+
+[[rule]]
+id = "battery-failsafe-off"
+params = ["BATT_FS_LOW_ACT", "BATT_FS_CRT_ACT"]
+forbid = [0]
+reason = """No action at low or critical battery: the vehicle flies until the battery
+can't hold it up."""
+
+[[rule]]
+id = "battery-critical-order"
+params = ["BATT_CRT_VOLT"]
+below = "BATT_LOW_VOLT"
+reason = """The critical voltage has to be below the low voltage, or the low-battery stage is
+skipped and the critical action comes first."""
+
+[[rule]]
+id = "fence-disabled"
+params = ["FENCE_ENABLE"]
+forbid = [0]
+reason = """The geofence is off: no distance, altitude or polygon limit applies."""
+
+[[rule]]
+id = "fence-report-only"
+params = ["FENCE_ACTION"]
+forbid = [0]
+reason = """Report Only: a breach is a message and the vehicle keeps going."""
+
+[[rule]]
+id = "arming-checks-off"
+params = ["ARMING_CHECK"]
+forbid = [0]
+reason = """0 disables every pre-arm check: the vehicle arms with a bad compass, no GPS
+or an uncalibrated accelerometer."""
+
+[[rule]]
+id = "arming-checks-reduced"
+params = ["ARMING_CHECK"]
+any_change = true
+severity = "warn"
+reason = """The set of pre-arm checks changed; anything left out is no longer checked before
+the motors start."""
+
+[[rule]]
+id = "ekf-failsafe-weakened"
+params = ["FS_EKF_ACTION"]
+allow_only = [1, 3]
+severity = "warn"
+reason = """Only Land keeps an EKF failsafe from leaving the vehicle flying on a position
+estimate it no longer trusts."""
+
+[[rule]]
+id = "crash-check-off"
+params = ["FS_CRASH_CHECK"]
+forbid = [0]
+severity = "warn"
+reason = """Without crash detection, motors keep running after the vehicle has hit the
+ground or tipped over."""
+
+[[rule]]
+id = "frame-changed"
+params = ["FRAME_CLASS", "FRAME_TYPE"]
+any_change = true
+reason = """The motor layout the mixer assumes. A wrong frame flips the vehicle on take-off;
+run the motor test after changing it."""
+
+[[rule]]
+id = "motor-mapping-changed"
+params = ["SERVO*_FUNCTION"]
+any_change = true
+reason = """Changes which output drives which motor or servo. Check it with the motor test
+before flying."""
+
+[[rule]]
+id = "rate-gain-step"
+params = ["ATC_RAT_RLL_[PID]", "ATC_RAT_PIT_[PID]", "ATC_RAT_YAW_[PID]", "ATC_RAT_*_FF"]
+max_step = 0.5
+reason = """A rate-loop gain moved by more than half in one change; tune in smaller steps."""
+
+[[rule]]
+id = "logging-reduced"
+params = ["LOG_BITMASK"]
+forbid = [0]
+reason = """Logging disabled: after an incident there is nothing to find out what happened
+from."""
+
+[[rule]]
+id = "return-altitude"
+params = ["RTL_ALT"]
+min = 2000
+severity = "warn"
+reason = """RTL climbs to this height (in centimetres) before flying home. Below the trees and
+buildings around the site, the way home goes through them."""
+
+[[rule]]
+id = "descent-too-fast"
+params = ["WPNAV_SPEED_DN", "PILOT_SPEED_DN"]
+max = 300
+severity = "warn"
+reason = """Descending faster than about 3 m/s (300 cm/s) risks the vortex ring state."""

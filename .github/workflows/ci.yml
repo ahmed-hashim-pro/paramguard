@@ -1,0 +1,69 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e '.[dev]'
+      - run: ruff check src tests sitl
+      - run: ruff format --check src tests sitl
+      - run: mypy src
+      - run: pytest -q
+
+  ardupilot-rules:
+    # The built-in ArduCopter rules, checked against ArduCopter 4.6.3's own metadata.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: make ap-meta
+
+  action:
+    # The composite action, run against this repository's own example file.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./
+        with:
+          files: examples/survey-quad/vehicle.params
+          base: HEAD
+      - name: The action fails on the cleanup
+        run: |
+          cp examples/survey-quad/cleanup.params examples/survey-quad/vehicle.params
+          if paramguard check --base HEAD --format github examples/survey-quad/vehicle.params; then
+            echo "expected the cleanup to be blocked"; exit 1
+          fi
+
+  sitl:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t paramguard-sitl:dev sitl/
+      - run: docker pull jonasvautherin/px4-gazebo-headless:1.15.4
+      - name: Fly both parameter files
+        run: sitl/run.sh sitl-out before=examples/survey-quad/vehicle.params after=examples/survey-quad/cleanup.params
+      - name: Measure from telemetry and assert the README's claims
+        run: |
+          docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e MPLCONFIGDIR=/tmp \
+            -v "$PWD":/repo -v "$PWD/sitl-out":/out paramguard-sitl:dev \
+            python3 /repo/sitl/analyze.py /out --check --svg /out/sitl.svg
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sitl-run
+          path: sitl-out/
